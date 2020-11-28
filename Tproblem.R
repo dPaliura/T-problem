@@ -139,4 +139,62 @@ T.problem.solve <- function(C.mat,
 }
 
 
-
+Td.problem.solve <- function(C.mat, D.mat,
+                             a.vec, b.vec, 
+                             init.plan.method="NW-corner"){
+    input <- list(
+        C = C.mat,
+        D = D.mat,
+        a = a.vec,
+        b = b.vec
+    )
+    
+    result <- list(
+        input = input,
+        X = NA,
+        objective = NA,
+        open = sum(a.vec)!=sum(b.vec),
+        solvable = TRUE,
+        init.plan = NA,
+        init.plan.method = NA,
+        base = NA,
+        potentials = NA,
+        pseudo.costs = NA,
+        iters = NA,
+        messages = NULL
+    )
+    
+    balance <- sum(a.vec) - sum(b.vec)
+    
+    if (balance){
+        result$messages <- "Open T-problem is not available yet."
+        result$open <- TRUE
+        return(result)
+    }
+    else result$open <- FALSE
+    
+    m <- nrow(C.mat)
+    n <- ncol(C.mat)
+    maxiters <- (m*n)^2
+    
+    D.rowsums <- rowSums(D)
+    D.colsums <- colSums(D)
+    if (any(D.rowsums < a)){
+        result$solvable <- FALSE
+        result$messages <- paste0("Td-problem is not solvable with given matrix D.\n",
+                                  "Total capacities in rows", 
+                                  paste(which(D.rowsums < a), collapse=", "), "\n",
+                                  "are less than amounts of cargo units in respective departures.")
+        return(result)
+    }
+    if (any(D.colsums < v)){
+        result$solvable <- FALSE
+        result$messages <- c(result$messages, 
+                          paste0("Td-problem is not solvable with given matrix D.\n",
+                                  "Total capacities in columns", 
+                                  paste(which(D.colsums < a), collapse=", "), "\n",
+                                  "are less than cargo requests in respective destinations."))
+        return(result)
+    }
+    rm(D.rowsums, D.colsums)
+}
