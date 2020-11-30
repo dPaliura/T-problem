@@ -1,30 +1,5 @@
 source("TproblemProcedures.R", echo=FALSE)
-
-
-north.west <- function(a, b, m=length(a), n=length(b)){
-    X <- matrix(0, nrow=m, ncol=n)
-    
-    i <- j <- 1
-    for (iter in 1:(m*n)){
-        x <- min(a[i], b[j])
-        X[i, j] <- x
-        
-        a[i] <- a[i]-x
-        b[j] <- b[j]-x
-        
-        if (!any(as.logical(a))) return(X)
-        
-        if (!a[i]) i <- i+1
-        if (!b[j]) j <- j+1
-    }
-    cat("Something gone wrong. It might be not balanced T-problem. Returned NA\n")
-    return(NA)
-}
-
-
-min.element <- function(C, a, b){
-    
-}
+source("initPlanMethods.R", echo=FALSE)
 
 
 T.problem.solve <- function(C.mat, 
@@ -83,6 +58,8 @@ T.problem.solve <- function(C.mat,
     
     
     for (iter in 1:maxiters){
+        result$iters <- iter
+        
         base <- get.base(X, C.mat, m, n)
         
         # Getting potentials
@@ -99,7 +76,6 @@ T.problem.solve <- function(C.mat,
             result$base <- base
             result$potentials <- list(alpha=alpha, beta=beta)
             result$pseudo.costs <- potentials$pseudo.costs
-            result$iters = iter
             
             return(result)
         }
@@ -141,7 +117,8 @@ T.problem.solve <- function(C.mat,
 
 Td.problem.solve <- function(C.mat, D.mat,
                              a.vec, b.vec, 
-                             init.plan.method="NW-corner"){
+                             init.plan.method="NW-corner",
+                             maxiters = length(a.vec)*length(b.vec)){
     input <- list(
         C = C.mat,
         D = D.mat,
@@ -153,21 +130,16 @@ Td.problem.solve <- function(C.mat, D.mat,
         input = input,
         X = NA,
         objective = NA,
-        open = sum(a.vec)!=sum(b.vec),
-        solvable = TRUE,
-        init.plan = NA,
-        init.plan.method = NA,
-        base = NA,
-        potentials = NA,
-        pseudo.costs = NA,
-        iters = NA,
+        open = sum(a.vec)!= sum(b.vec),
+        init.plan.method = init.plan.method,
+        iters = 0,
         messages = NULL
     )
     
     balance <- sum(a.vec) - sum(b.vec)
     
     if (balance){
-        result$messages <- "Open T-problem is not available yet."
+        result$messages <- "Open Td-problem is not available yet."
         result$open <- TRUE
         return(result)
     }
@@ -175,26 +147,68 @@ Td.problem.solve <- function(C.mat, D.mat,
     
     m <- nrow(C.mat)
     n <- ncol(C.mat)
-    maxiters <- (m*n)^2
     
-    D.rowsums <- rowSums(D)
-    D.colsums <- colSums(D)
-    if (any(D.rowsums < a)){
-        result$solvable <- FALSE
+    D.rowsums <- rowSums(D.mat)
+    D.colsums <- colSums(D.mat)
+    if (any(D.rowsums < a.vec)){
         result$messages <- paste0("Td-problem is not solvable with given matrix D.\n",
                                   "Total capacities in rows", 
-                                  paste(which(D.rowsums < a), collapse=", "), "\n",
+                                  paste(which(D.rowsums < a.vec), collapse=", "), "\n",
                                   "are less than amounts of cargo units in respective departures.")
         return(result)
     }
-    if (any(D.colsums < v)){
-        result$solvable <- FALSE
+    if (any(D.colsums < b.vec)){
         result$messages <- c(result$messages, 
                           paste0("Td-problem is not solvable with given matrix D.\n",
                                   "Total capacities in columns", 
-                                  paste(which(D.colsums < a), collapse=", "), "\n",
+                                  paste(which(D.colsums < b.vec), collapse=", "), "\n",
                                   "are less than cargo requests in respective destinations."))
         return(result)
     }
+    
     rm(D.rowsums, D.colsums)
+    
+    X.add <- matrix(0, m, n)
+    
+    for (iter in 1:maxiters){
+        T.res <- T.problem.solve(C.mat, a.vec, b.vec, init.plan.method)
+        
+        result$iters <- result$iters + T.res$iters
+        result$messages <- c(result$messages, T.res$messages)
+        
+        X <- T.res$X
+        if (is.matrix(X)){
+            complete <- TRUE
+            M <- max(C.mat)*10
+            
+            for (i in 1:m){
+                for (j in 1:n){
+                    if (X[i,j] > D.mat[i,j]){
+                        complete <- FALSE
+                        X.add[i,j] <- D.mat[i,j]
+                        
+                        a.vec[i] <- a.vec[i] - D.mat[i,j]
+                        b.vec[j] <- b.vec[j] - D.mat[i,j]
+                        
+                        C.mat[i, j] <- M
+                    }
+                }
+            }
+            
+            if (complete){
+                result$X <- X + X.add
+                result$objective <- sum(result$X * result$input$C)
+                return(result)
+            }
+        }
+        else {
+            result$messages <- c(result$messages, 
+                                 "Failed to find T-problem solution")
+            return(result)
+        }
+    }
+    result$messages <- c(result$messages, 
+                         paste0("Method reached maxiters (", maxiters, ") ",
+                                "number of iterations."))
+    return(result)
 }
