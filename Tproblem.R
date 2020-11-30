@@ -24,8 +24,7 @@ T.problem.solve <- function(C.mat,
         iters = NA,
         messages = NULL
     )
-    
-    
+    class(result) <- "TProblemSolution"
     balance <- sum(a.vec) - sum(b.vec)
     
     if (balance){
@@ -52,10 +51,7 @@ T.problem.solve <- function(C.mat,
         X <- north.west(a, b, m, n)
     }
     
-    
     result$init.plan <- X
-    
-    
     
     for (iter in 1:maxiters){
         result$iters <- iter
@@ -135,6 +131,7 @@ Td.problem.solve <- function(C.mat, D.mat,
         iters = 0,
         messages = NULL
     )
+    class(result) <- "TdProblemSolution"
     
     balance <- sum(a.vec) - sum(b.vec)
     
@@ -211,4 +208,110 @@ Td.problem.solve <- function(C.mat, D.mat,
                          paste0("Method reached maxiters (", maxiters, ") ",
                                 "number of iterations."))
     return(result)
+}
+
+
+print.TProblemSolution <- function(x, all=FALSE){
+    
+    if (all){
+        print(as.list(x))
+        return()
+    }
+    
+    if (!is.matrix(x$X)){
+        cat("No solution. Got next messages while searching solution:\n")
+        for (mess in x$messages){
+            cat(paste0(mess, '\n'))
+        }
+        return()
+    }
+    
+    C <- x$input$C
+    rownames(C) <- paste0("A_", 1:nrow(C))
+    colnames(C) <- paste0("B_", 1:ncol(C))
+    a <- x$input$a
+    names(a) <- paste0("a_", 1:length(a))
+    b <- x$input$b
+    names(b) <- paste0("b_", 1:length(b))
+    
+    cat("\tTransportation problem solution\n")
+    cat("Input:\n")
+    cat("Costs of transportations from departure A_i to destination B_j:\n")
+    print(C)
+    cat("Stocks of cargo units at departures A_i:\n")
+    print(a)
+    cat("Request for cargo units at destinations B_j:\n")
+    print(b)
+    cat("\n")
+    
+    sum.a <- sum(a)
+    sum.b <- sum(b)
+    cat("Balance condition:", "sum(a_i) =", sum.a, 
+        ifelse(x$open, ifelse(sum.a<sum.b, "<", ">"), "="),
+        sum.b, "= sum(b_j)\n")
+    cat("T-problem is", ifelse(x$open, "open", "close"), "\n\n")
+    
+    cat("To get initial plan used", x$init.plan.method, "method",
+        "and got next initial plan:\n")
+    print(x$init.plan)
+    cat("\n")
+    
+    cat("After", x$iters, "iterations got optimal solution:\n")
+    print(x$X)
+    cat("Objective value for this solution is", x$objective)
+    cat("\n")
+}
+
+
+print.TdProblemSolution <- function(x, all=FALSE){
+    
+    if (all){
+        print(as.list(x))
+        return()
+    }
+    
+    if (!is.matrix(x$X)){
+        cat("No solution. Got next messages while searching solution:\n")
+        for (mess in x$messages){
+            cat(paste0(mess, '\n'))
+        }
+        return()
+    }
+    
+    C <- x$input$C
+    rownames(C) <- paste0("A_", 1:nrow(C))
+    colnames(C) <- paste0("B_", 1:ncol(C))
+    D <- x$input$D
+    rownames(D) <- rownames(C)
+    colnames(D) <- colnames(C)
+    a <- x$input$a
+    names(a) <- paste0("a_", 1:length(a))
+    b <- x$input$b
+    names(b) <- paste0("b_", 1:length(b))
+    
+    cat("\tTransportation problem with capacity constraints solution\n")
+    cat("Input:\n")
+    cat("Costs of transportations from departure A_i to destination B_j:\n")
+    print(C)
+    cat("Capacity constraints for transportations from departure A_i to destination B_j:\n")
+    print(D)
+    cat("Stocks of cargo units at departures A_i:\n")
+    print(a)
+    cat("Request for cargo units at destinations B_j:\n")
+    print(b)
+    cat("\n")
+    
+    sum.a <- sum(a)
+    sum.b <- sum(b)
+    cat("Balance condition:", "sum(a_i) =", sum.a, 
+        ifelse(x$open, ifelse(sum.a<sum.b, "<", ">"), "="),
+        sum.b, "= sum(b_j)\n")
+    cat("Td-problem is", ifelse(x$open, "open", "close"), "\n\n")
+    
+    cat("To getting initial plan used", x$init.plan.method, "method\n\n")
+    
+    cat("After", x$iters, "iterations got optimal solution:\n")
+    print(x$X)
+    cat("Objective value for this solution is", x$objective)
+    cat("\n")
 }
